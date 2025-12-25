@@ -16,7 +16,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # run
-streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+python -m streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
 Open the forwarded/local URL (default http://localhost:8501) and navigate pages from the sidebar.
