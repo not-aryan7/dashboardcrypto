@@ -3,7 +3,7 @@ import pandas as pd
 from utils.style import inject_css
 from utils.providers import DEFAULT_UNIVERSE, get_prices, last_price_and_change
 
-st.set_page_config(page_title="NexusFlow Crypto Desk", page_icon="🟦", layout="wide")
+st.set_page_config(page_title="Himalayan Crypto Desk", page_icon="🟦", layout="wide")
 inject_css()
 
 universe = st.session_state.get("universe", DEFAULT_UNIVERSE[:6])

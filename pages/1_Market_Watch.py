@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from utils.diagnostics import sidebar_diagnostics
 from utils.providers import DEFAULT_UNIVERSE, get_prices
 
 st.title("🟦 Market Pulse")
@@ -18,6 +19,7 @@ with st.sidebar:
         index=0,
         help="Normalize divides each series by its first value in the selected window and multiplies by 100.",
     )
+    sidebar_diagnostics(source, universe, str(start), str(end))
 
 prices = get_prices(universe, pd.to_datetime(start), pd.to_datetime(end), source=source)
 
