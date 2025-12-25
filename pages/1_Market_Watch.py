@@ -4,7 +4,7 @@ import plotly.express as px
 from utils.providers import DEFAULT_UNIVERSE, get_prices
 
 st.title("🟦 Market Pulse")
-st.caption("Reimagined phase layout with the same data hooks. Switch sources, refine the universe, and explore the price stack.")
+st.caption("Use Normalized to 100 Chart style for best visualization chart")
 
 with st.sidebar:
     source = st.selectbox("Data source", ["auto", "binance", "coingecko"], index=0)
