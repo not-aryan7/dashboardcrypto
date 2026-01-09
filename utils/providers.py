@@ -72,6 +72,8 @@ def _load_coingecko(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) 
     out = {}
     days = max((end - start).days, 1)
 
+    import time
+
     for t in tickers:
         coin_id = COINGECKO_MAP.get(t)
         if not coin_id:
@@ -79,18 +81,32 @@ def _load_coingecko(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) 
 
         url = f"https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart"
         params = {"vs_currency": "usd", "days": min(days + 5, 3650), "interval": "daily"}
-        r = requests.get(url, params=params, timeout=20)
-        r.raise_for_status()
-        js = r.json()
-        prices_list = js.get("prices", [])
-        if not prices_list:
-            continue
+        
+        # Add User-Agent to avoid 403s and sleep to avoid 429s
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36"}
+        try:
+            r = requests.get(url, params=params, headers=headers, timeout=20)
+            if r.status_code == 429:
+                time.sleep(10) # Heavy fallback backoff
+                r = requests.get(url, params=params, headers=headers, timeout=20)
+                
+            r.raise_for_status()
+            js = r.json()
+            prices_list = js.get("prices", [])
+            if not prices_list:
+                continue
 
-        idx = pd.to_datetime([p[0] for p in prices_list], unit="ms")
-        vals = [p[1] for p in prices_list]
-        s = pd.Series(vals, index=idx, name=t).sort_index()
-        s = s.loc[(s.index >= start) & (s.index <= end)]
-        out[t] = s
+            idx = pd.to_datetime([p[0] for p in prices_list], unit="ms")
+            vals = [p[1] for p in prices_list]
+            s = pd.Series(vals, index=idx, name=t).sort_index()
+            s = s.loc[(s.index >= start) & (s.index <= end)]
+            out[t] = s
+            
+            # Polite delay between calls
+            time.sleep(1.5)
+            
+        except Exception:
+            pass
 
     return pd.DataFrame(out).sort_index().dropna(how="all")
 
