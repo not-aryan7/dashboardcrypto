@@ -86,9 +86,14 @@ else:
 st.plotly_chart(px.line(display, title=None, labels={"value": y_label, "index": "Date"}), use_container_width=True)
 
 st.subheader("Risk + co-movement")
-col1, col2 = st.columns([1.2, 1])
-with col1:
-    st.plotly_chart(px.imshow(rets.corr(), text_auto=".2f", aspect="auto", color_continuous_scale="PuBuGn"), use_container_width=True)
-with col2:
+st.subheader("Risk + co-movement")
+tab1, tab2 = st.tabs(["Correlation Matrix", "Volatility Table"])
+
+with tab1:
+    fig_corr = px.imshow(rets.corr(), text_auto=".2f", aspect="auto", color_continuous_scale="PuBuGn")
+    # Setting height ensures it doesn't get squashed even if width is small
+    st.plotly_chart(fig_corr, use_container_width=True, height=400)
+
+with tab2:
     vol_table = vol.sort_values(ascending=False).to_frame("Ann. Vol %")
-    st.dataframe(vol_table.style.format("{:.1f}"), use_container_width=True, height=320)
+    st.dataframe(vol_table.style.format("{:.1f}"), use_container_width=True)
