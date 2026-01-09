@@ -37,4 +37,8 @@ def sidebar_diagnostics(source: str, universe, start: str, end: str):
             st.error("Last fetch error:")
             st.code(st.session_state["last_fetch_error"])
 
+        if st.button("Clear Data Cache"):
+            st.cache_data.clear()
+            st.rerun()
+
         st.caption("If DNS works but HTTP fails, Streamlit Cloud/network is blocking outbound requests or rate limiting you.")
