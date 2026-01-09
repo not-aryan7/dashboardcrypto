@@ -76,7 +76,12 @@ def _load_binance(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) ->
             try:
                 r = session.get(current_base, params=params, timeout=5)
                 
-                # Check for region block specifically (451) or Forbidden (403)
+                # Debugging region blocks
+                if r.status_code != 200:
+                    print(f"BINANCE DEBUG: Status {r.status_code} from {current_base}")
+
+                # Check for region block (451) or Forbidden (403)
+                # Some environments might return other codes for blocked content, so we debug first.
                 if r.status_code in [451, 403] and current_base == base_global:
                     print(f"Binance Global blocked ({r.status_code}). Switching to Binance US for {t}...")
                     current_base = base_us

@@ -5,6 +5,11 @@ Streamlit-based crypto dashboard with:
 - **Portfolio Vault**: user-set weights, BTC benchmark, CAGR/Sharpe/Max DD/Vol, equity + drawdown + rolling vol.
 - **Alert Studio**: volatility spike, BTC correlation break, and drawdown exceed alerts with supporting charts.
 
+## Deployment
+
+- **Main (Streamlit Cloud):** [https://dashboardcryptoterminal.streamlit.app/](https://dashboardcryptoterminal.streamlit.app/)
+- **Backup (Render):** [https://dashboardcrypto-1.onrender.com](https://dashboardcrypto-1.onrender.com)
+
 ## Quick start
 
 ```bash
