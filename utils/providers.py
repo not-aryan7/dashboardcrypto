@@ -157,6 +157,58 @@ def _load_coingecko(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) 
 
     return pd.DataFrame(out).sort_index().dropna(how="all")
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _load_yfinance(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
+    import yfinance as yf
+    out = {}
+    
+    # yfinance expects date strings or datetime objects
+    # It handles batch downloading well
+    try:
+        data = yf.download(tickers, start=start, end=end, group_by='ticker', auto_adjust=True, threads=True)
+        
+        if data.empty:
+            return pd.DataFrame()
+
+        # If only one ticker is requested, yfinance returns a flat DataFrame (not MultiIndex columns for tickers)
+        # unless we force it, but group_by='ticker' usually handles structure well.
+        # However, if len(tickers) == 1, the columns are just 'Open', 'High'... 
+        # If len(tickers) > 1, columns are ('BTC-USD', 'Open'), ...
+        
+        for t in tickers:
+            try:
+                if len(tickers) == 1:
+                    # Single ticker case
+                    s = data["Close"]
+                else:
+                    # Multi ticker case
+                    if t not in data.columns:
+                        continue
+                    s = data[t]["Close"]
+                
+                s = s.dropna()
+                # Ensure time zone naive or consistent? 
+                # yfinance returns tz-aware. We often want naive or UTC.
+                # The rest of the app seems to expect somewhat loose checks.
+                # Let's strip tz just in case to match other sources
+                if s.index.tz is not None:
+                    s.index = s.index.tz_convert(None)
+
+                # Filter range (yf usually precise but good to double check)
+                s = s.loc[(s.index >= start) & (s.index <= end)]
+                out[t] = s.sort_index()
+            except Exception as e:
+                print(f"Error extracting {t} from yfinance data: {e}")
+                continue
+                
+    except Exception as e:
+        msg = f"Error fetching from Yahoo Finance: {e}"
+        print(msg)
+        st.session_state["last_fetch_error"] = msg
+        return pd.DataFrame()
+
+    return pd.DataFrame(out).sort_index().dropna(how="all")
+
 def get_prices(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp, source: str = "auto") -> pd.DataFrame:
     tickers = [t.strip().upper() for t in tickers if t.strip()]
     if not tickers:
@@ -165,23 +217,32 @@ def get_prices(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp, sourc
     source = (source or "auto").lower()
     
     # Define strategy
-    # If auto, try Binance first (faster), then CoinGecko
+    # If auto, try Binance first (fastest/best data), then Yahoo (Reliable), then CoinGecko (Backup)
     if source == "auto":
         print("Attempting Binance...")
         df = _load_binance(tickers, start, end)
         if is_valid_result(df, tickers):
             return df
         
-        print("Binance partial/failed. Attempting CoinGecko...")
+        print("Binance partial/failed. Attempting Yahoo Finance...")
+        df_yf = _load_yfinance(tickers, start, end)
+        if is_valid_result(df_yf, tickers):
+            return df_yf
+
+        print("Yahoo partial/failed. Attempting CoinGecko...")
         df_cg = _load_coingecko(tickers, start, end)
-        
-        # Merge results if needed? Or just prefer CoinGecko if Binance was empty
         if not df_cg.empty:
             return df_cg
-        return df # Return whatever we got from Binance if CoinGecko failed completely
-        
+            
+        # Return best effort (yahoo or binance)
+        if not df_yf.empty: 
+            return df_yf
+        return df
+
     elif source == "binance":
         return _load_binance(tickers, start, end)
+    elif source == "yahoo":  # Allow manual selection if added to UI later
+        return _load_yfinance(tickers, start, end)
     elif source == "coingecko":
         return _load_coingecko(tickers, start, end)
 

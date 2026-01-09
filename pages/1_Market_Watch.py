@@ -8,7 +8,7 @@ st.title("🟦 Market Pulse")
 st.caption("Use Normalized to 100 Chart style for best visualization chart")
 
 with st.sidebar:
-    source = st.selectbox("Data source", ["auto", "binance", "coingecko"], index=0)
+    source = st.selectbox("Data source", ["auto", "binance", "yahoo", "coingecko"], index=0)
     universe = st.multiselect("Universe", DEFAULT_UNIVERSE, default=DEFAULT_UNIVERSE[:6])
     st.session_state["universe"] = universe
     start = st.date_input("Start", value=pd.to_datetime("2023-01-01"))
