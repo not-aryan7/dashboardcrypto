@@ -39,7 +39,14 @@ def last_price_and_change(series: pd.Series) -> tuple[float, float]:
 @st.cache_data(ttl=3600, show_spinner=False)
 def _load_binance(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
     out = {}
-    base = "https://api.binance.com/api/v3/klines"
+    # Endpoints
+    base_global = "https://api.binance.com/api/v3/klines"
+    base_us = "https://api.binance.us/api/v3/klines"
+    
+    # Check which API works. This check is cached per session/function run effectively by logic flow,
+    # but strictly speaking we re-check on failure. 
+    # Let's try Global first, if 451/403/Timeout, switch to US for that ticker.
+    
     # Ensure datetimes
     start = pd.to_datetime(start)
     end = pd.to_datetime(end)
@@ -56,21 +63,36 @@ def _load_binance(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) ->
 
         rows = []
         cur = start_ms
+        
+        # Decide base URL for this ticker (or session)
+        # We start with global. If it fails, we mark a flag or just try US.
+        current_base = base_global
+        
+        # Try a probe request or just start fetching.
+        # If fetching fails midway, it's messy. Let's assume region block is immediate.
+        
         while cur < end_ms:
             params = {"symbol": sym, "interval": "1d", "startTime": cur, "endTime": end_ms, "limit": 1000}
             try:
-                r = session.get(base, params=params, timeout=10)
+                r = session.get(current_base, params=params, timeout=5)
+                
+                # Check for region block specifically (451) or Forbidden (403)
+                if r.status_code in [451, 403] and current_base == base_global:
+                    print(f"Binance Global blocked ({r.status_code}). Switching to Binance US for {t}...")
+                    current_base = base_us
+                    r = session.get(current_base, params=params, timeout=5)
+                
                 r.raise_for_status()
                 data = r.json()
                 if not data:
                     break
                 rows.extend(data)
-                # Next start time is the last close time + 1ms, or just add interval
-                # Binance returns [Open time, Open, High, Low, Close, Volume, Close time, ...]
+                # Next start time
                 cur = data[-1][6] + 1 
             except Exception as e:
-                msg = f"Error fetching {t} from Binance: {e}"
+                msg = f"Error fetching {t} from Binance ({current_base}): {e}"
                 print(msg)
+                # Don't clutter UI with every retry error, but store last one
                 st.session_state["last_fetch_error"] = msg
                 break
         
@@ -88,7 +110,6 @@ def _load_binance(tickers: list[str], start: pd.Timestamp, end: pd.Timestamp) ->
         except Exception as e:
             msg = f"Error parsing {t} from Binance: {e}"
             print(msg)
-            st.session_state["last_fetch_error"] = msg
             continue
 
     return pd.DataFrame(out).sort_index().dropna(how="all")
